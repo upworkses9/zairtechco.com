@@ -1,0 +1,649 @@
+var generalInformation = {
+    systemSettings: {
+        systemDateFormat: 'dd M y, D',
+        calendarDisplay: 1,
+        calendarDisplayInMobile: 1
+    },
+}
+
+// Create a new script element
+var script = document.createElement('script');
+
+// Set the script's source
+script.src = '../flight/js/Countries.js';
+document.body.appendChild(script);
+
+var searchResults = null, Vue_FlightBook = null, bookinginfo_vue = null, ImportPNR = null, searchBooking = null, EditPassport = null, hqOffline = null, Ancillaries = null;
+
+$(document).ready(function () {
+    if(getUrlVars().nc != undefined){
+        var nodeCode = atob(getUrlVars().nc);
+        getClientInfo(nodeCode);
+    }
+    
+    if(!window.location.pathname.includes('login.html') && !window.location.pathname.includes('about.html') && !window.location.pathname.includes('contact.html')){
+        setColorTheme();
+    }
+});
+
+const websocket = new Vue({
+    data: {
+        message: "",
+        logs: [],
+        status: "disconnected",
+        sessionId: null
+    },
+
+    methods: {
+        connect() { //Connecting to websocket server
+
+            if (clientInfoUrls.b2b){
+                    
+                this.socket = new WebSocket(clientInfoUrls.b2b.webSocket);
+                this.socket.onopen = () => { //get all the response here
+                    this.status = "connected";
+                    console.log("Staus:" + this.status);
+                    this.socket.onmessage = ({ data }) => {
+                        console.log("Recieved message:");
+                        console.log(data);
+                        var msg = JSON.parse(data);
+                        if (msg.message == 'TokenExpired') {
+                            // commonlogin(function () {
+                            //     window.location.reload();
+                            // });
+                        }
+                        else if (msg.message == 'null') {
+                            if(ImportPNR){
+                                alertify.alert('alert','Please Enter Valid PNR');
+                                ImportPNR.loaderEnable=false;
+                                return false;
+                            }
+                        }
+                        else if (msg.message == 'PNR already exist') {
+                            if(ImportPNR){
+                                ImportPNR.loaderEnable = false;
+                                ImportPNR.pnrNo = '';
+                                document.getElementById("pnrNo").focus();
+                                alertify.alert('Warning',msg.message);
+                            }
+                        }
+                        else if (msg.message == 'Not enough available credit limit') {
+                            // alertify.alert('Warning',msg.message);
+                            alertify.alert('Warning',msg.message, function(){
+                                $('.loading-overlay').hide();
+                                if(searchBooking){
+                                    searchBooking.issueTicketError();
+                                }
+                                else if(ImportPNR){
+                                    ImportPNR.issueTicketError();
+                                }
+                                else if(bookinginfo_vue){
+                                    bookinginfo_vue.sendTripDetailRQ();
+                                }
+                            });
+                        }
+                        else if(msg?.message){
+                            if(searchResults){
+                                searchResults.privilegeError(msg);
+                            }
+                            else if(Vue_FlightBook){
+                                Vue_FlightBook.privilegeError(msg);
+                            }
+                            else if(bookinginfo_vue){
+                                alert(msg.message);
+                                if(msg.message == 'bookings.tripDetails.sendSupplier.failure'){
+                                    window.location.href = '/flight/flight-search.html';
+                                }
+                                else if(msg.message == 'Do not have the privilege of Issue Ticket'){
+                                    bookinginfo_vue.isLoading = false;
+                                }
+                                else if(msg.message == 'Payment failed'){
+                                    window.location.href = '/flight/flight-confirmation.html';
+                                }
+                            }
+                            else if(ImportPNR){
+                                ImportPNR.loaderEnable = false;
+                                alertify.alert('Warning',msg.message);
+                            }
+                            
+                        }
+                        
+                        if (msg.response || msg.requestDetails) {
+                            console.log("INN");
+                            if (msg?.response?.content?.error) {
+                                if(ImportPNR){
+                                    ImportPNR.loaderEnable = false;
+                                    alertify.alert('Warning', msg.response.content.error.message);
+                                    return;
+                                }
+                                else if(bookinginfo_vue){
+                                    
+                                    alert(msg.response.content.error.message);
+                                    if (msg.response.content.command == "FlightIssueTicketRS") {
+                                        localStorage.setItem('paymentGatewayError', msg.response.content.error.message);
+                                        window.location.reload();
+                                    }
+                                }
+                                else if(EditPassport){
+                                    alert(msg.response.content.error.message);
+                                }
+                                
+                            }
+
+                            if (msg.response) {
+                                command = msg.response.content.command;
+                            } else {
+                                command = msg.requestDetails.service;
+                            }
+                            // var serviceId = msg.response.service;
+                            console.log(command);
+                            switch (command) {
+                                case 'FlightRS':
+                                    //Flight Search
+                                    searchResults.processFlightResult(msg);
+                                    break;
+                                case 'FlightSearchRS':
+                                    //Flight Search
+                                    searchResults.processFlightResult(msg);
+                                    break;
+                                case 'FlightSelectRS':
+                                    //Flight Select
+                                    if (searchResults) {
+                                        searchResults.baggageForSearchResult(msg);
+                                    } else {
+                                        if (msg?.response?.content?.error?.message) {
+                                            alertify.alert('Alert', msg.response.content.error.message).setting({ 'closable': false, onclose: function () { window.location = '/flight/flight-search.html?nc=' + btoa(localStorage.clientNode) } }).set('label', 'OK');
+
+                                        } else {
+                                            Vue_FlightBook.initData(msg);
+                                        }
+                                    }
+                                    break;
+                                case 'FlightFareruleRS':
+                                    //Flight Select
+                                    if (searchResults) {
+                                        searchResults.flightSelect(msg);
+                                        // Vue_FlightBook.flightSelect(msg);
+                                    }
+                                    else if (Vue_FlightBook) {
+                                        Vue_FlightBook.flightSelect(msg);
+                                    }
+                                    // else if(bookinginfo_vue){
+                                    //     bookinginfo_vue.$children[0].flightSelect(msg);
+                                    // }                                    
+                                    // else {
+                                    //     Vue_FlightBook.initData(msg);
+                                    // }
+                                    break;
+                                case 'FlightRepriceRS':
+                                    // if(searchBooking){
+                                    //     searchBooking.confirmDetails(msg, command);
+                                    // }
+                                    // else if(ImportPNR){
+                                    //     ImportPNR.confirmDetails(msg, command);
+                                    // }
+                                    if(bookinginfo_vue){
+                                        bookinginfo_vue.sendRepriceRq(msg);
+                                        // bookinginfo_vue.confirmDetails(msg, command);
+                                    }
+                                    break;
+                                case 'FlightRepricingRS':
+                                    // if(searchBooking){
+                                    //     searchBooking.confirmDetails(msg, command);
+                                    // }
+                                    // else if(ImportPNR){
+                                    //     ImportPNR.confirmDetails(msg, command);
+                                    // }
+                                    if(bookinginfo_vue){
+                                        bookinginfo_vue.flightRepricing(msg);
+                                        // bookinginfo_vue.confirmDetails(msg, command);
+                                    }
+                                    break;
+                                case 'TicketCancelRS':
+                                    // if(searchBooking){
+                                    //     searchBooking.confirmDetails(msg, command);
+                                    // }
+                                    // else if(ImportPNR){
+                                    //     ImportPNR.confirmDetails(msg, command);
+                                    // }
+                                    sessionStorage.setItem('Flag',1);
+                                    if(bookinginfo_vue){
+                                        $('.loading-overlay').hide();
+                                        bookinginfo_vue.getvoidTicket(msg);
+                                        // bookinginfo_vue.confirmDetails(msg, command);
+                                    }
+                                    break;
+                                case 'FlightBookRS':
+                                    paymentGateway(msg);
+                                    break;
+                                case 'FlightTripDetailsRS':
+                                    // if(searchBooking){
+                                    //     searchBooking.confirmDetails(msg, command);
+                                    // }
+                                    // else if(ImportPNR){
+                                    //     ImportPNR.confirmDetails(msg, command);
+                                    // }
+                                    $('.loading-overlay').hide();
+                                    if(bookinginfo_vue){
+                                        bookinginfo_vue.getTripDetails(msg);
+                                        // bookinginfo_vue.confirmDetails(msg, command);
+                                    }
+                                    else if(hqOffline){
+                                        hqOffline.$children[0].getTripDetails(msg);
+                                    }
+                                    break;
+                                case 'FlightCancelPnrRS':
+                                    // if(searchBooking){
+                                    //     searchBooking.confirmDetails(msg, command);
+                                    // }
+                                    // else if(ImportPNR){
+                                    //     ImportPNR.confirmDetails(msg, command);
+                                    // }
+                                    if(bookinginfo_vue){
+                                        bookinginfo_vue.sendTripDetailRQ();
+                                        // bookinginfo_vue.confirmDetails(msg, command);
+                                    }
+                                    break;
+                                case 'HotelSearchRS':
+                                    //hotel Search
+                                    console.log("Hotel Search!!");
+                                    hotelList.fetchHotelResult(msg);
+                                    break;
+                                case 'HotelDetailsRS':
+                                    //hotel Search
+                                    console.log("Hotel Details!!");
+                                    hotelSingle.fetchHotelDetailResult(msg);
+                                    break;
+                                case 'HotelRoomRS':
+                                    //hotel Search
+                                    console.log("Room Details!!");
+                                    hotelSingle.fetchroomRQResponse(msg);
+                                    break;
+                                case 'PrebookRS':
+                                    //hotel Search
+                                    console.log("PreBooking Details!!");
+                                    hotelBooking.preBookingRQResponse(msg);
+                                    break;
+                                case 'SaveBookRS':
+                                    //hotel Search
+                                    console.log("PreBooking Details!!");
+                                    hotelBooking.SaveBookingRQResponse(msg);
+                                    break;
+                                case 'BookRS':
+                                    //hotel Search
+                                    console.log("Booking Details!!");
+                                    hotelBooking.bookRQResponse(msg);
+                                    break;
+                                case 'FlightPnrImportRS':
+                                    if(ImportPNR){
+                                        //   localStorage.setItem("pnrRes",data);
+                                        localStorage.setItem("importPNRInfo",JSON.stringify(msg.response));
+                                        localStorage.setItem("isNavigatedFromImportPNR",true);
+                                        sessionStorage.setItem('Flag',1);
+                                        ImportPNR.loaderEnable = false;
+                                        var searchUrl = '/flight/flight-confirmation.html';
+                                        window.location.href = searchUrl;
+                                    }
+                                    else if(bookinginfo_vue){
+                                        // bookinginfo_vue.$children[0].getTripDetails(msg);
+                                        bookinginfo_vue.confirmDetails(msg, command);
+                                    }
+                                    break;
+                                case 'FlightIssueTicketRS':
+                                    $('.loading-overlay').hide();
+                                    if(hqOffline){
+                                        hqOffline.$children[0].issueTicketResp(msg);
+                                    } else {
+                                        sessionStorage.setItem('Flag',1);
+                                        location.reload();
+                                    }
+                                    break;
+                                case 'FlightModifyBookRS':
+                                    if(msg.response.content.error == undefined){
+                                        $('.loading-overlay').hide();
+                                        window.location.href = "/flight/flight-confirmation.html";
+                                    }
+                                    else{
+                                        if(EditPassport){
+                                            $('.loading-overlay').hide();
+                                            document.getElementById('submit-passport').disabled = false;
+                                            document.getElementById('cancel-passport').disabled = false;
+                                            document.getElementById('submit-passport').style.cursor = 'pointer';
+                                            document.getElementById('cancel-passport').style.cursor = 'pointer';
+                                        }
+                                    }
+                                    break;
+                                case 'FlightAirBaggageRS':
+                                    if(Vue_FlightBook){
+                                        // Vue_FlightBook.getAirBaggageDetails(msg);
+                                        Vue_FlightBook.getAirBaggageDetailsCheck(msg);
+                                    }
+                                    break;
+                                case 'AirMealRS':
+                                    if(Vue_FlightBook){
+                                        // Vue_FlightBook.getAirMealsDetails(msg);
+                                        Vue_FlightBook.getAirMealsDetailsCheck(msg);
+                                    }
+                                    break;
+                                case 'AirSeatRS':
+                                    if(Vue_FlightBook){
+                                        Vue_FlightBook.getSeatMapDetails(msg);
+                                    }
+                                    break;
+                                case 'FlightSelectAncillaryRS':
+                                    if(Ancillaries){
+                                        Ancillaries.getAncillaryResponse(msg);
+                                    }
+                                    else if(Vue_FlightBook){
+                                        Vue_FlightBook.getAncillaryResponse(msg);
+                                    }
+                                    break;
+                                case 'FlightSelectCategoryRS':
+                                    //Flight Search
+                                    searchResults.processFlightSelectCategory(msg);
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                                        
+                    };
+                };
+                
+            } else {
+                setTimeout(() => {
+                    console.log('retry to get node info')
+                    this.connect();
+                }, 20);
+            }
+        },
+        disconnect() { //Disconnect connection from websocket server
+            this.socket.close();
+            this.status = "disconnected";
+            this.logs = [];
+        },
+        sendMessage(msg) { //sending requests to websocket server
+            var self = this;
+            if(this.socket && this.socket.readyState === 1){
+                console.log("message sent!!!");
+                self.socket.send(msg);
+                console.log("Sent message:" + msg);
+                self.message = "";
+            } else {
+                setTimeout(() => {
+                    console.log("wait for connection...")
+                    this.sendMessage(msg);
+                }, 1); // wait 1 milisecond for the connection...
+            }
+        }
+    }
+});
+
+function getUrlVars() {
+    var vars = [],
+        hash;
+    var newUrl = decodeURIComponent(window.location.href);
+    var hashes = newUrl.slice(newUrl.indexOf('?') + 1).split('&');
+    for (var i = 0; i < hashes.length; i++) {
+        hash = hashes[i].split('=');
+        vars.push(hash[0]);
+        vars[hash[0]] = hash[1];
+    }
+    return vars;
+}
+
+function getClientInfo(nodeCode){
+    if(nodeCode){
+        localStorage.setItem('clientNode', nodeCode.toUpperCase());
+        let coreDetails = {
+            agency : clientInfoUrls.b2b
+        }
+        localStorage.setItem('nodeData', JSON.stringify(coreDetails));
+    }
+}
+
+function setColorTheme() {
+    if (clientInfoUrls?.b2b?.theme) {
+        $('head').append('<style>:root{' +
+            '--primary-bg-color:' + clientInfoUrls?.b2b?.theme?.primaryBGColor +
+            '; --primary-font-color:' + clientInfoUrls?.b2b?.theme?.primaryFontColor +
+            ';  --secondary-bg-color:' + clientInfoUrls?.b2b?.theme?.secondaryBGColor +
+            ';  --secondary-font-color:' + clientInfoUrls?.b2b?.theme?.secondaryFontColor +
+            ';  --tertiary-bg-color:' + clientInfoUrls?.b2b?.theme?.tertiaryBGColor +
+            ';  --tertiary-font-color:' + clientInfoUrls?.b2b?.theme?.tertiaryFontColor +
+            '}</style>');
+    }
+}
+
+function airportLocationFromAirportCode(airportCode) {
+    var airportName = _.where(AirlinesTimezone, { I: airportCode.toUpperCase() }); if (airportName == "") { airportName = airportCode; }
+    else { airportName = airportName[0].C }
+    return airportName;
+}
+
+async function filterSupplier(leg, supplier, searchUrlwithoutSupplier) {
+
+    var airSupplier = '';
+    const defaultSupplier = [2,12,15,7,18,22,23];
+    var body = {
+        leg: leg,
+        supplierCode: supplier.filter(function(e) { return (defaultSupplier.indexOf(e) == -1) }).map(function(e){return e.toString()})
+    }
+
+    return await axios.post(clientInfoUrls.b2b.hubRestApi + 'route', body, {
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": 'Bearer ' + localStorage.id_token
+        },
+    }).then(function (response) {
+        if (response.data) {
+            let uniqueSupplierCodes = [];
+            response.data.forEach(element => {
+                if(response.data.filter((ele)=> ele.supplierCode == element.supplierCode ).length == leg.length && uniqueSupplierCodes.indexOf(Number(element.supplierCode)) == -1){
+                    uniqueSupplierCodes.push(Number(element.supplierCode));
+                }
+            });
+            var tmpArr = supplier.filter(function(e) { return (defaultSupplier.indexOf(e) != -1) });
+            supplier = [...new Set(uniqueSupplierCodes.concat(tmpArr))];
+            
+            // const uniqueSupplierCodes = [...new Set(response.data.map(item => Number(item.supplierCode)))];
+            // var tmpArr = supplier.filter(function(e) { return (defaultSupplier.indexOf(e) != -1) });
+            // supplier = uniqueSupplierCodes.concat(tmpArr);
+        }
+
+        if (supplier.length == 0 && response.data.length == 0) {
+            alertify.alert('Alert', "Supplier does not support route.");
+            oneway.selectedSuppliers = [];
+            oneway.loadingprocess = false ;
+            multicity.loadingprocess = false ;
+            return false;
+        }
+        if (supplier.length == 0) {
+            alertify.alert('Alert', "No supplier selected.");
+            oneway.loadingprocess = false ;
+            multicity.loadingprocess = false ;
+            return false;
+        }
+        airSupplier = supplier.length > 0 ? supplier.join('|') : '';
+
+        let searchUrl = searchUrlwithoutSupplier + '-' + airSupplier;
+        window.location.href = searchUrl;
+        
+    }).catch(function (error) {
+        console.log('Error on Authentication');
+    });
+}
+
+function showHideConfirmLoader(show) {
+    if (show) {
+        $('.loading-overlay').show();
+    } else {
+        $('.loading-overlay').hide();
+    }
+}
+
+var numberFormats = {
+    'AED': { currency: { style: 'currency', currency: 'AED', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'AED', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'AFN': { currency: { style: 'currency', currency: 'AFN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'AFN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ALL': { currency: { style: 'currency', currency: 'ALL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ALL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'AMD': { currency: { style: 'currency', currency: 'AMD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'AMD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ANG': { currency: { style: 'currency', currency: 'ANG', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ANG', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'AOA': { currency: { style: 'currency', currency: 'AOA', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'AOA', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ARS': { currency: { style: 'currency', currency: 'ARS', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ARS', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'AUD': { currency: { style: 'currency', currency: 'AUD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'AUD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'AWG': { currency: { style: 'currency', currency: 'AWG', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'AWG', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'AZN': { currency: { style: 'currency', currency: 'AZN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'AZN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BAM': { currency: { style: 'currency', currency: 'BAM', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BAM', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BBD': { currency: { style: 'currency', currency: 'BBD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BBD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BDT': { currency: { style: 'currency', currency: 'BDT', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BDT', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BGN': { currency: { style: 'currency', currency: 'BGN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BGN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BHD': { currency: { style: 'currency', currency: 'BHD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BHD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BIF': { currency: { style: 'currency', currency: 'BIF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BIF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BMD': { currency: { style: 'currency', currency: 'BMD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BMD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BND': { currency: { style: 'currency', currency: 'BND', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BND', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BOB': { currency: { style: 'currency', currency: 'BOB', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BOB', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BRL': { currency: { style: 'currency', currency: 'BRL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BRL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BSD': { currency: { style: 'currency', currency: 'BSD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BSD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BTN': { currency: { style: 'currency', currency: 'BTN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BTN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BWP': { currency: { style: 'currency', currency: 'BWP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BWP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BYN': { currency: { style: 'currency', currency: 'BYN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BYN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'BZD': { currency: { style: 'currency', currency: 'BZD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'BZD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CAD': { currency: { style: 'currency', currency: 'CAD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CAD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CDF': { currency: { style: 'currency', currency: 'CDF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CDF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CHF': { currency: { style: 'currency', currency: 'CHF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CHF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CLP': { currency: { style: 'currency', currency: 'CLP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CLP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CNY': { currency: { style: 'currency', currency: 'CNY', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CNY', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'COP': { currency: { style: 'currency', currency: 'COP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'COP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CRC': { currency: { style: 'currency', currency: 'CRC', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CRC', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CUC': { currency: { style: 'currency', currency: 'CUC', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CUC', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CUP': { currency: { style: 'currency', currency: 'CUP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CUP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CVE': { currency: { style: 'currency', currency: 'CVE', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CVE', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'CZK': { currency: { style: 'currency', currency: 'CZK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'CZK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'DJF': { currency: { style: 'currency', currency: 'DJF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'DJF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'DKK': { currency: { style: 'currency', currency: 'DKK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'DKK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'DOP': { currency: { style: 'currency', currency: 'DOP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'DOP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'DZD': { currency: { style: 'currency', currency: 'DZD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'DZD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'EGP': { currency: { style: 'currency', currency: 'EGP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'EGP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ERN': { currency: { style: 'currency', currency: 'ERN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ERN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ETB': { currency: { style: 'currency', currency: 'ETB', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ETB', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'EUR': { currency: { style: 'currency', currency: 'EUR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'EUR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'FJD': { currency: { style: 'currency', currency: 'FJD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'FJD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'FKP': { currency: { style: 'currency', currency: 'FKP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'FKP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GBP': { currency: { style: 'currency', currency: 'GBP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GBP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GEL': { currency: { style: 'currency', currency: 'GEL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GEL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GGP': { currency: { style: 'currency', currency: 'GGP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GGP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GHS': { currency: { style: 'currency', currency: 'GHS', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GHS', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GIP': { currency: { style: 'currency', currency: 'GIP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GIP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GMD': { currency: { style: 'currency', currency: 'GMD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GMD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GNF': { currency: { style: 'currency', currency: 'GNF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GNF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GTQ': { currency: { style: 'currency', currency: 'GTQ', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GTQ', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'GYD': { currency: { style: 'currency', currency: 'GYD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'GYD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'HKD': { currency: { style: 'currency', currency: 'HKD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'HKD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'HNL': { currency: { style: 'currency', currency: 'HNL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'HNL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'HRK': { currency: { style: 'currency', currency: 'HRK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'HRK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'HTG': { currency: { style: 'currency', currency: 'HTG', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'HTG', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'HUF': { currency: { style: 'currency', currency: 'HUF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'HUF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'IDR': { currency: { style: 'currency', currency: 'IDR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'IDR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ILS': { currency: { style: 'currency', currency: 'ILS', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ILS', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'IMP': { currency: { style: 'currency', currency: 'IMP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'IMP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'INR': { currency: { style: 'currency', currency: 'INR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'INR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'IQD': { currency: { style: 'currency', currency: 'IQD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'IQD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'IRR': { currency: { style: 'currency', currency: 'IRR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'IRR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ISK': { currency: { style: 'currency', currency: 'ISK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ISK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'JEP': { currency: { style: 'currency', currency: 'JEP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'JEP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'JMD': { currency: { style: 'currency', currency: 'JMD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'JMD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'JOD': { currency: { style: 'currency', currency: 'JOD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'JOD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'JPY': { currency: { style: 'currency', currency: 'JPY', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'JPY', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KES': { currency: { style: 'currency', currency: 'KES', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KES', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KGS': { currency: { style: 'currency', currency: 'KGS', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KGS', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KHR': { currency: { style: 'currency', currency: 'KHR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KHR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KMF': { currency: { style: 'currency', currency: 'KMF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KMF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KPW': { currency: { style: 'currency', currency: 'KPW', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KPW', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KRW': { currency: { style: 'currency', currency: 'KRW', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KRW', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KWD': { currency: { style: 'currency', currency: 'KWD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KWD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KYD': { currency: { style: 'currency', currency: 'KYD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KYD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'KZT': { currency: { style: 'currency', currency: 'KZT', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'KZT', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'LAK': { currency: { style: 'currency', currency: 'LAK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'LAK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'LBP': { currency: { style: 'currency', currency: 'LBP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'LBP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'LKR': { currency: { style: 'currency', currency: 'LKR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'LKR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'LRD': { currency: { style: 'currency', currency: 'LRD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'LRD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'LSL': { currency: { style: 'currency', currency: 'LSL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'LSL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'LYD': { currency: { style: 'currency', currency: 'LYD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'LYD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MAD': { currency: { style: 'currency', currency: 'MAD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MAD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MDL': { currency: { style: 'currency', currency: 'MDL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MDL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MGA': { currency: { style: 'currency', currency: 'MGA', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MGA', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MKD': { currency: { style: 'currency', currency: 'MKD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MKD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MMK': { currency: { style: 'currency', currency: 'MMK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MMK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MNT': { currency: { style: 'currency', currency: 'MNT', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MNT', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MOP': { currency: { style: 'currency', currency: 'MOP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MOP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MRO': { currency: { style: 'currency', currency: 'MRO', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MRO', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MUR': { currency: { style: 'currency', currency: 'MUR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MUR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MVR': { currency: { style: 'currency', currency: 'MVR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MVR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MWK': { currency: { style: 'currency', currency: 'MWK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MWK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MXN': { currency: { style: 'currency', currency: 'MXN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MXN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MYR': { currency: { style: 'currency', currency: 'MYR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MYR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'MZN': { currency: { style: 'currency', currency: 'MZN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'MZN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'NAD': { currency: { style: 'currency', currency: 'NAD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'NAD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'NGN': { currency: { style: 'currency', currency: 'NGN', currencyDisplay: 'symbol' }, currencyNoCents: { style: 'currency', currency: 'NGN', currencyDisplay: 'symbol', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'NIO': { currency: { style: 'currency', currency: 'NIO', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'NIO', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'NOK': { currency: { style: 'currency', currency: 'NOK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'NOK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'NPR': { currency: { style: 'currency', currency: 'NPR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'NPR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'NZD': { currency: { style: 'currency', currency: 'NZD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'NZD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'OMR': { currency: { style: 'currency', currency: 'OMR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'OMR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'PAB': { currency: { style: 'currency', currency: 'PAB', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'PAB', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'PEN': { currency: { style: 'currency', currency: 'PEN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'PEN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'PGK': { currency: { style: 'currency', currency: 'PGK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'PGK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'PHP': { currency: { style: 'currency', currency: 'PHP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'PHP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'PKR': { currency: { style: 'currency', currency: 'PKR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'PKR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'PLN': { currency: { style: 'currency', currency: 'PLN', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'PLN', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'PYG': { currency: { style: 'currency', currency: 'PYG', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'PYG', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'QAR': { currency: { style: 'currency', currency: 'QAR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'QAR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'RON': { currency: { style: 'currency', currency: 'RON', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'RON', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'RSD': { currency: { style: 'currency', currency: 'RSD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'RSD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'RUB': { currency: { style: 'currency', currency: 'RUB', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'RUB', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'RWF': { currency: { style: 'currency', currency: 'RWF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'RWF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SAR': { currency: { style: 'currency', currency: 'SAR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SAR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SBD': { currency: { style: 'currency', currency: 'SBD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SBD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SCR': { currency: { style: 'currency', currency: 'SCR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SCR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SDG': { currency: { style: 'currency', currency: 'SDG', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SDG', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SEK': { currency: { style: 'currency', currency: 'SEK', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SEK', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SGD': { currency: { style: 'currency', currency: 'SGD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SGD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SHP': { currency: { style: 'currency', currency: 'SHP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SHP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SLL': { currency: { style: 'currency', currency: 'SLL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SLL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SOS': { currency: { style: 'currency', currency: 'SOS', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SOS', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SPL': { currency: { style: 'currency', currency: 'SPL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SPL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SRD': { currency: { style: 'currency', currency: 'SRD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SRD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SSP': { currency: { style: 'currency', currency: 'SSP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SSP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'STD': { currency: { style: 'currency', currency: 'STD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'STD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SVC': { currency: { style: 'currency', currency: 'SVC', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SVC', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SYP': { currency: { style: 'currency', currency: 'SYP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SYP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'SZL': { currency: { style: 'currency', currency: 'SZL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'SZL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'THB': { currency: { style: 'currency', currency: 'THB', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'THB', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TJS': { currency: { style: 'currency', currency: 'TJS', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TJS', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TMT': { currency: { style: 'currency', currency: 'TMT', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TMT', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TND': { currency: { style: 'currency', currency: 'TND', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TND', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TOP': { currency: { style: 'currency', currency: 'TOP', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TOP', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TRY': { currency: { style: 'currency', currency: 'TRY', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TRY', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TTD': { currency: { style: 'currency', currency: 'TTD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TTD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TVD': { currency: { style: 'currency', currency: 'TVD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TVD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TWD': { currency: { style: 'currency', currency: 'TWD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TWD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'TZS': { currency: { style: 'currency', currency: 'TZS', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'TZS', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'UAH': { currency: { style: 'currency', currency: 'UAH', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'UAH', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'UGX': { currency: { style: 'currency', currency: 'UGX', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'UGX', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'USD': { currency: { style: 'currency', currency: 'USD', currencyDisplay: 'symbol' }, currencyNoCents: { style: 'currency', currency: 'USD', currencyDisplay: 'symbol', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'UYU': { currency: { style: 'currency', currency: 'UYU', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'UYU', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'UZS': { currency: { style: 'currency', currency: 'UZS', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'UZS', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'VEF': { currency: { style: 'currency', currency: 'VEF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'VEF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'VND': { currency: { style: 'currency', currency: 'VND', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'VND', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'VUV': { currency: { style: 'currency', currency: 'VUV', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'VUV', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'WST': { currency: { style: 'currency', currency: 'WST', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'WST', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'XAF': { currency: { style: 'currency', currency: 'XAF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'XAF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'XCD': { currency: { style: 'currency', currency: 'XCD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'XCD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'XOF': { currency: { style: 'currency', currency: 'XOF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'XOF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'XPF': { currency: { style: 'currency', currency: 'XPF', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'XPF', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'YER': { currency: { style: 'currency', currency: 'YER', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'YER', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ZAR': { currency: { style: 'currency', currency: 'ZAR', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ZAR', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ZMW': { currency: { style: 'currency', currency: 'ZMW', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ZMW', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ZWD': { currency: { style: 'currency', currency: 'ZWD', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ZWD', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+    'ZWL': { currency: { style: 'currency', currency: 'ZWL', currencyDisplay: 'code' }, currencyNoCents: { style: 'currency', currency: 'ZWL', currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 } },
+}

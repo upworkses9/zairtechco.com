@@ -1,0 +1,672 @@
+// from appsyncalls
+const adminGraphQLEndPoint = clientInfoUrls.b2b.amplify.administrationGraphql;
+
+// using in login js
+var loginMethodCount = 0;
+
+var commonHeader = {
+    headers: {
+        "Content-Type": "application/json",
+        "Authorization": 'Bearer ' + localStorage.id_token
+    }
+}
+
+let isAlerted = false;
+var headerinstance = null;
+
+$(document).ready(function() {
+    
+    const pagePath = window.location.pathname;
+    if(pagePath != '/' && !pagePath.includes('/login.html') && !pagePath.includes('/contact.html') 
+        && !pagePath.includes('/about.html') && !pagePath.includes('/terms-of-use.html') && pagePath != '' && pagePath != null){
+        if(localStorage.clientNode && localStorage.clientNode !=null && localStorage.clientNode != ''){
+            const nodeCode = localStorage.clientNode;
+            if(localStorage.username){
+                const userId = 'USR_' + localStorage.username;
+                if (sessionStorage.isNodeSwitched == "true") {
+                    groupCall(nodeCode, userId);
+                    setTimeout(() => {
+                        sessionStorage.removeItem('isNodeSwitched');
+                    }, 50);
+                }
+                refreshToken(nodeCode, userId);
+            }  
+    }
+
+});
+
+async function groupCall(nodeCode,userId){
+    getAppsForUser(nodeCode,userId);
+    isNodeNparentsActive(nodeCode);
+    getFunForUser(nodeCode, userId, MainApps.TravelB2B);
+    // getNodesByUser(userId);
+    getNodeById(nodeCode);
+}
+async function apiCallBack(endpoint, query, payLoad) {
+    try {
+        let token = localStorage.id_token;
+
+        const graphqlData = await axios({
+            url: endpoint,
+            method: 'post',
+            headers: {
+                Authorization: 'Bearer ' + token
+            },
+            data: {
+                query: query,
+                variables: payLoad
+            }
+        });
+
+        return graphqlData.data ? graphqlData.data : null;
+
+    }
+}
+async function getAppsForUser(nodeCode,userId){
+
+    const SaaSApiGraphQL = `
+        query MyQuery($clientId: String!, $userId: String!) {
+            getAppsForUser(PK: $clientId, userId: $userId) {
+            data {
+                PK
+                Name
+                Icon
+                NavigationURL
+                Description
+                Priority
+            }
+            }
+        }
+       `
+    const payLoad = {
+        clientId: nodeCode,
+        userId: userId
+    };
+
+    await this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, payLoad).then(async (resp)=> {
+        if(resp && resp.data && resp.data.getAppsForUser){
+            let userApps = resp.data.getAppsForUser.data;
+            var app = _.find(userApps, function (e) {
+                return e.PK == MainApps.TravelB2B
+            });
+
+            if(app && app.PK){
+                loginMethodCount += 1;
+            } else {
+                logoutAndClear("Sorry.. No Apps Found!");
+            }
+        } else if(resp && resp.data && resp.data.getAppsForUser == null && resp.errors == undefined){
+            logoutAndClear("Sorry.. No Apps Found!");
+        } else if(resp && resp.errors && resp.errors.length > 0){
+            alert(resp.errors[0].message);
+        }
+    });
+
+}
+async function getFunForUser(clientId, userId, appId){
+    const SaaSApiGraphQL = `
+        query MyQuery($clientId: String!, $userId: String!, $appId: String!) {
+            getFunctionalitiesForUser(appId: $appId, PK: $clientId, userId: $userId) {
+            status
+            error
+            data {
+                    PK
+                    Name
+                }
+            }
+        }
+       `
+
+    let userAllfuns = [];
+    let travelb2bFuns = [];
+    let groupFuns = [];
+
+    const payLoad = {
+        clientId: clientId,
+        userId: userId,
+        appId: appId
+    };
+    await this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, payLoad).then((resp)=> {
+        if(resp && resp.data && resp.data.getFunctionalitiesForUser){
+            travelb2bFuns = resp.data.getFunctionalitiesForUser.data;
+        } else if(resp && resp.errors && resp.errors.length > 0){
+            alert(resp.errors[0].message);
+        }
+    });
+
+    const groupPayLoad = {
+        clientId: clientId,
+        userId: userId,
+        appId: MainApps.GroupBooking
+    };
+    await this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, groupPayLoad).then((resp) => {
+        if (resp && resp.data && resp.data?.getFunctionalitiesForUser?.data) {
+            groupFuns = resp.data.getFunctionalitiesForUser.data;
+        } else if (resp && resp.errors && resp.errors.length > 0) {
+            alert(resp.errors[0].message);
+        }
+    });
+   
+    userAllfuns = [...travelb2bFuns, ...groupFuns];
+    
+    if (userAllfuns.length > 0) {
+        sessionStorage.setItem('user_funs', JSON.stringify(userAllfuns));
+    }
+    else {
+        sessionStorage.setItem('user_funs', JSON.stringify([]));
+    }
+    loginMethodCount += 1;
+
+}
+async function getPrevForUser(){
+    const SaaSApiGraphQL = `
+        query MyQuery($clientId: String!, $userId: String!, $funId: String) {
+            getPrivilegesForUser(clientId: $clientId, funId: $funId, userId: $userId) {
+                error
+                status
+                data {
+                    PK
+                    Name
+                }
+            }
+        }
+       `
+
+    const payLoad = {
+        clientId: "CLI_9999",
+        userId: "USR_8cbf69a6-5292-479f-920b-aa4b120d4bc8",
+        funId: "FUN_2AvH5sZTeyeOFrLMN0sIKZIRCP7"
+    };
+
+    await this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, payLoad).then((resp)=> {
+        if(resp && resp.data && resp.data.getPrivilegesForUser){
+            let userPrevs = resp.data.getPrivilegesForUser.data;
+            sessionStorage.setItem('user_prevs',JSON.stringify(userPrevs));
+           
+        } else if(resp && resp.errors && resp.errors.length > 0){
+            sessionStorage.setItem('user_prevs',JSON.stringify([]));
+            alert(resp.errors[0].message);
+        }
+    });
+}
+async function isNodeNparentsActive(client){
+
+    const SaaSApiGraphQL = `
+        query SaaSApiGraphQL($clientId: String!) {
+            isNodeNParentsActive(PK: $clientId) {
+                data{
+                    msg
+                }
+            }
+        }
+        `
+    const payLoad = {
+        clientId: client
+    };
+
+    await this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, payLoad).then((resp)=> {
+        if(resp && resp.data && resp.data.isNodeNParentsActive){
+            let parentInfo = resp.data.isNodeNParentsActive.data;
+            if(parentInfo && parentInfo.msg == "ACTIVE") {
+                loginMethodCount += 1;
+            } else {
+                logoutAndClear("Sorry.. Parent node is not active");
+            }
+        } else if(resp && resp.errors && resp.errors.length > 0){
+            alert(resp.errors[0].message);
+        }
+    });
+    
+}
+async function getNodeById(client){
+    const SaaSApiGraphQL = `
+    query SaaSApiGraphQL($Id: String!) {
+        getClientByid(SK: $Id, PK: $Id) {
+          PK
+          SK
+          Name
+          Description
+          GSI1PK
+          GSI1SK
+          LSI1
+          SearchName
+          Type
+          Address
+          BaseCurrency
+          City
+          CompanyRegId
+          Country
+          TaxNo
+          PhoneNo
+          PhoneAreaCode
+          Email
+          Layout
+          Theme
+          FormDataId
+          LogoSquare
+          Logo
+        }
+        listDynamicFormData(filter: {nodeCode: {eq: $Id}}) {
+          items {
+            formData,
+            id,
+            formId
+          }
+        }
+       getNodeFromMysql( PK: $Id) {
+          body {
+           parentName
+            }
+       }
+      }      
+    `
+
+    const payLoad = {
+        Id: client
+    };
+
+    await this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, payLoad).then((resp)=> {
+        if(resp && resp.data && resp.data.getClientByid){
+            let clientInfo = resp.data.getClientByid;
+            localStorage.setItem('bc',clientInfo.BaseCurrency);
+            sessionStorage.setItem('client_info',JSON.stringify(clientInfo));
+            loginMethodCount += 1;
+            
+            if(headerinstance){
+                headerinstance.$children[0].getClientInfo();
+            }
+
+            let parentNodeFullInfo = resp.data.getNodeFromMysql;
+            if (parentNodeFullInfo && parentNodeFullInfo.body && parentNodeFullInfo.body[0]) {
+                let parentInfo = parentNodeFullInfo.body[0].parentName;
+                const parentName = parentInfo.split("~");
+                localStorage.setItem("ActiveNodeParent", parentName[1]);
+                localStorage.setItem("ActiveNodePK", parentName[2]);
+            }
+
+            const userId = 'USR_' + localStorage.username;
+            getNodesByUser(userId);
+
+        } else if(resp && resp.errors && resp.errors.length > 0){
+            logoutAndClear(resp.errors[0].message);     
+        }
+    });
+}
+// method for client logo, phone and email
+async function getClientDetails(client, phnCountryCode){
+    const SaaSApiGraphQL = `
+    query SaaSApiGraphQL($Id: String!) {
+        getClientByid(SK: $Id, PK: $Id) {
+          PK
+          SK
+          Name
+          Description
+          GSI1PK
+          GSI1SK
+          LSI1
+          SearchName
+          Type
+          Address
+          BaseCurrency
+          City
+          CompanyRegId
+          Country
+          TaxNo
+          PhoneNo
+          PhoneAreaCode
+          Email
+          Layout
+          Theme
+          FormDataId
+          LogoSquare
+          Logo
+        }
+        listDynamicFormData(filter: {nodeCode: {eq: $Id}}) {
+          items {
+            formData,
+            id,
+            formId
+          }
+        }
+       getNodeFromMysql( PK: $Id) {
+          body {
+           parentName
+            }
+       }
+      }      
+    `
+
+    const payLoad = {
+        Id: client
+    };
+
+    var clientDetails = {};
+
+    await this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, payLoad)
+    .then((resp)=> {
+        if(resp && resp.data && resp.data.getClientByid){
+            clientDetails = {
+                "logo" : resp.data.getClientByid.Logo ? resp.data.getClientByid.Logo : null,
+                "phoneNumber" : getPhoneCountryCodeForClient(phnCountryCode, resp.data.getClientByid),
+                "address" : resp.data.getClientByid.Address ? resp.data.getClientByid.Address.replace(/<[^>]+>/g, ' ') : null,
+                "email" : resp.data.getClientByid.Email ? resp.data.getClientByid.Email : null
+            }
+        }
+    });
+
+    return clientDetails;
+}
+async function getNodesByUser(userId) {
+    if (localStorage.ActiveNodePK) {
+        const SaaSApiGraphQL = `
+        query SaaSApiGraphQL($userId: String!, $type: String,$node: String!) {
+            queryChildNodesByUserIdV1(userId: $userId, type: $type, node: $node) {
+                data {
+                    PK
+                    Name
+                    GSI1SK
+                    LSI1
+                    BaseCurrency
+                }
+            }
+        }
+    `
+
+        const payLoad = {
+            userId: userId,
+            type: null,
+            node: localStorage.ActiveNodePK
+        };
+
+        await this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, payLoad).then((resp) => {
+            if (resp && resp.data && resp.data.queryChildNodesByUserIdV1) {
+                let userNodesList = resp.data.queryChildNodesByUserIdV1.data;
+                if(sessionStorage.user_nodes == undefined){
+                    sessionStorage.setItem('user_nodes', JSON.stringify(userNodesList));
+                }
+
+                sessionStorage.setItem('search_booking_user_nodes', JSON.stringify(userNodesList));
+            }
+            else if (resp && resp.errors && resp.errors.length > 0) {
+                if(sessionStorage.user_nodes == undefined){
+                    sessionStorage.setItem('user_nodes', JSON.stringify([]));
+                }
+                sessionStorage.setItem('search_booking_user_nodes', JSON.stringify([]));
+                alert(resp.errors[0].message);
+            }
+            loginMethodCount += 1;
+        });
+    } else {
+        setTimeout(() => {
+            getNodesByUser(userId);
+        }, 50);
+    }
+}
+function logoutAndClear(alertMessage){
+    alert(alertMessage ? alertMessage : "Sorry..! Please contact admin");
+    sessionStorage.clear();
+    localStorage.clear();
+    if (window.location.href.includes('booking.j2bonline.com')) {
+        document.cookie = 'redirectedFromb2b=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=j2bonline.com; path=/;';
+        setTimeout(() => {
+            window.location.href = 'https://www.j2bonline.com/';
+        }, 100);
+    }
+    else {
+        let pagePath = window.location.pathname.includes('/login.html');
+        if (!pagePath) {
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 100);
+        }
+    }
+}
+function isUserFunEnabled(funId){
+    let isEnabled = false;
+    if(funId){
+        if(sessionStorage.user_funs){
+            const allEnabledFuns = JSON.parse(sessionStorage.user_funs);
+            for (const fun of allEnabledFuns) {
+                if(fun.PK == funId){
+                    isEnabled = true;
+                    break;
+                }
+            };
+        }
+    } 
+    return isEnabled;
+}
+async function getSupplierByNodeCode() {
+    if (localStorage.clientNode){
+        var supplierUrl = clientInfoUrls.b2b.db.supplierManagement + 'self/';
+        var node = localStorage.getItem('clientNode');
+        var supplierData = [];
+        let url = supplierUrl + node;
+        await axios.get(url).then(function (resp) {
+            if (resp && resp.data && resp.data.data && resp.data.data.length > 0) {
+                supplierData = resp.data.data[0].tripElement.provider;
+            } else {
+                 alert("Sorry..! No suppliers configured");
+            }
+        }).catch(function (error) {
+            console.log("error", error);
+        });
+        return supplierData;
+    } else {
+        setTimeout(() => {
+            window.location.reload();
+        }, 150);
+    }
+}
+//for root client name
+async function getRootNodeById() {
+    let clientNode = localStorage.getItem('clientNode');
+    let HQ;
+    const SaaSApiGraphQL = `
+    query SaaSApiGraphQL($clientId: String!) {
+        GetParentsByClientId(PK: $clientId) {
+            data{  
+          PK
+          SK
+          Name
+          Description
+          GSI1PK
+          GSI1SK
+          LSI1
+          SearchName
+          Type
+          Address
+          BaseCurrency
+          City
+          Country
+         NodeType
+          CreditCheck
+          BackofficeEnabled
+            }     
+      }
+      }`
+
+    const payLoad = {
+    clientId: clientNode,
+    };
+
+    return this.apiCallBack(adminGraphQLEndPoint, SaaSApiGraphQL, payLoad).then(async (resp)=> {
+        if(resp && resp.data && resp.data.GetParentsByClientId){
+            HQ = JSON.stringify(resp.data.GetParentsByClientId.data[0]);
+            localStorage.setItem("HQ",HQ)
+            return true;
+        }
+        else{
+            return false;
+        }
+    });
+
+}
+
+function getNewToken(){
+    var self = this;
+    let newUrl = clientInfoUrls.b2b.cognito.cognito?.replace("/client/", "/custom/") + 'token/get/accessToken';
+    let body = {
+        accessToken : localStorage.access_token,
+        clientId: clientInfoUrls.b2b.cognito.clientId
+    }
+    axios.post(newUrl, body).then(function (resp) {
+        if(resp && resp.status == 200 && resp.data && resp.data.data){
+            localStorage.setItem('access_token', resp.data.data.access_token);
+            localStorage.setItem('id_token', resp.data.data.id_token);
+            localStorage.setItem('session_timer', Date.now());
+            console.log('token updated');
+
+        }
+    }).catch(function (error) {
+        logoutAndClear("Sorry..! Session timeout. Please login again.");
+    });
+}
+function refreshToken(nodeCode, userId){
+    setInterval(() => {
+        const startingTime = localStorage.session_timer ? localStorage.session_timer : 0;
+        const currentTime =  Date.now();
+        const timeDiff = currentTime - startingTime;
+        if (timeDiff > 900000) { // Every 15 minutes, it will be refreshed.
+            getNewToken();
+            if (sessionStorage.client_info) {
+                getAppsForUser(nodeCode, userId);
+                isNodeNparentsActive(nodeCode);
+                getFunForUser(nodeCode, userId, MainApps.TravelB2B);
+                getNodesByUser(userId);
+                getNodeById(nodeCode);
+            }
+            else {
+                groupCall(nodeCode, userId);
+            }
+        }
+    }, 3000);
+}
+
+function getCreditLimitUrl() {
+    var clientNodeId = localStorage.clientNode;
+    var hq = localStorage.HQ ? JSON.parse(localStorage.HQ) : null;
+
+    if(hq && hq.BackofficeEnabled == 'true'){
+        var bosCreditUrl = clientInfoUrls.b2b.backOfficeUrl != undefined ? clientInfoUrls.b2b.backOfficeUrl : '' ;
+        // var clientInfo = sessionStorage.client_info ? JSON.parse(sessionStorage.client_info) : null;
+        // if(clientInfo && clientInfo.Name != undefined){
+            var bosClientNodeId = localStorage.clientNode.split('_')[1];
+            getCreditLimit(bosCreditUrl+bosClientNodeId);
+        // }
+        // else{
+        //     setTimeout(() => {
+        //         getCreditLimitUrl();
+        //     }, 10);
+        // }
+    }
+    else{
+        getCreditLimit(clientInfoUrls.b2b.creditUrl+clientNodeId);
+    }
+}
+
+async function getCreditLimit(url) {
+    let token = localStorage.id_token;
+    var clientNodeId = localStorage.clientNode;
+    var response = {};
+
+    await axios.get(url, {
+        headers: {
+            Authorization: 'Bearer ' + token
+        },
+    }).then(function (response) {
+        if(headerinstance){
+            if(response.data.value != undefined){
+                response = response.data;
+                headerinstance.$children[0].isCreditLimitAvilable = true;
+                headerinstance.$children[0].getCreditLimitValue(response);
+            }
+            else{
+                headerinstance.$children[0].isCreditLimitAvilable = false;
+                headerinstance.$children[0].isShowCrediLimit = false;
+            }
+        }
+    }).catch(function (error) {
+        console.log('Error on Authentication');
+    });
+}
+
+async function getStrapiData(url) {
+    var response = {};
+    // var strapiURL = clientInfoUrls.b2b.AgencyName == 'jamal' ? 'https://cms-website-prd.j2b.ae/api/' : clientInfoUrls.b2b.cms.strapiURL;
+    // var strapiToken = clientInfoUrls.b2b.AgencyName == 'jamal' ? '19724249fbfc610eabe6de12b49074fb67db43bb5d7e51a591ec5d71e06305e3e5bf9dcaafe71aa3c5c50eb2accb30501f742ea10527552653f83d29fb174cfe7f9fcc8b595801ae8acf38b84ae4ba59d977c7e89187813b147f5c56ee0609a372ab96bb077d12e69cb84cd48dbe7fc3815d9972ca66c1f0de5312c4b0f5fc18' : clientInfoUrls.b2b.cms.strapiToken;
+    var strapiURL = clientInfoUrls.b2b.cms.strapiURL;
+    var strapiToken = clientInfoUrls.b2b.cms.strapiToken;
+    await axios.get(strapiURL + url, {
+        headers: {
+            Authorization: 'Bearer ' + strapiToken
+        },
+    })
+    .then((res) => {
+        response = res?.data?.data?.attributes ? res.data.data.attributes : null;
+    })
+    .catch((error) => {
+        console.log(error);
+    });
+    return response ?  response : null;
+}
+
+function getPhoneCountryCodeForClient(phnCountryCode, currentClientDetails){
+    var result = phnCountryCode.filter(word => word.code == currentClientDetails.PhoneAreaCode);
+    var selectedPhoneNumber = result && result.length > 0 ? result[0].telephone_code + currentClientDetails.PhoneNo : currentClientDetails.PhoneNo;
+    selectedPhoneNumber = selectedPhoneNumber.split(" ").join("");
+    return selectedPhoneNumber;
+}
+
+async function getPageData(agency, name){
+    return await axios.get(clientInfoUrls.b2b.cms.s3Content + agency + '/' + name + '.json')
+    .then((response) => { return response?.data?.data?.attributes});
+}
+
+//alert if idle for 20 minutes
+
+let idleTimer;
+
+function showAlert() {
+    var isAlertClose = false;
+    alertify.confirm('Due to inactivity your session has expired. Please press OK to refresh and Cancel to log out.').set('labels', {ok:'OK', cancel:'Cancel'})
+        .set('oncancel', function(closeEvent){
+        sessionStorage.clear();
+        localStorage.clear();
+        let pagePath = window.location.pathname.includes('/login.html');
+        if(!pagePath){
+            window.location.href = '/';
+        }
+    }).set('onok', function(closeEvent){
+        isAlertClose = true;
+        getNewToken();
+    } );
+
+    setTimeout(() => {
+        if(!isAlertClose){
+            sessionStorage.clear();
+            localStorage.clear();
+            let pagePath = window.location.pathname.includes('/login.html');
+            if(!pagePath){
+                window.location.href = '/';
+            }
+        }
+    }, 60000);
+}
+
+function resetTimer() {
+    if(!window.location.pathname.includes('/login.html') || !window.location.pathname.includes('/')){
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(showAlert, 20 * 60 * 1000); //20 minutes idle
+    }
+}
+
+document.addEventListener("mousemove", resetTimer);
+document.addEventListener("keydown", resetTimer);
+document.addEventListener("focus", resetTimer);
+document.addEventListener("touchmove", resetTimer);
+document.addEventListener("scroll", resetTimer);
+
+resetTimer();
+
+//alert if idle for 20 minutes

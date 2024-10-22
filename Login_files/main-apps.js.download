@@ -1,0 +1,6 @@
+const MainApps = Object.freeze({
+  TravelB2B: "APP_2LU9hEo9ctdfjC05y9Gafyo5Yck",
+  GroupBooking: "APP_2eB38SuQMeSbPglF9ALfIipTYda",
+  TravelB2C: "",
+    
+  });

@@ -1,0 +1,697 @@
+var login = new Vue({
+    el : "#login",
+    name : "login",
+    //   i18n,
+    data: function () {
+        return {
+            pageData : null,
+            globalData : null,
+            headerData : null,
+            footerData : null,
+            userMail :"",
+            userPassword:"",
+            showLoader:false,
+            sigInSec: true,
+            loaderEnable:false,
+            forgetUserMail : "",
+            forgotSec : false,
+            confirmForgotSec : false,
+            errMsg: '',
+            otp :"",
+            newPassword : "",
+            confirmNewPassword : "",
+            clientId: "",
+            cognitoEndpoint:"",
+            signInURL : "",
+            getUserInfoURL : "",
+            forgotPasswordURL : "",
+            confirmForgotPasswordURL : "",
+            resendOtpURL : "",
+            newsLetterMail : '',
+            // travelB2bEnum: TravelB2bFun
+            showMfaActivationSection: false,
+            showMfaSignInSection: false,
+            mfaActivationCode:"",
+            mfaSession : null,
+            hidePass:false,
+            travelB2bEnum: TravelB2bFun,
+            groupBookingEnum: GroupBookingFun
+        }
+    },
+    created: function () {
+        localStorage.clear();
+        sessionStorage.clear();
+        // from appsyncalls
+        this.clientId = clientInfoUrls.b2b.cognito.clientId;
+        this.cognitoEndpoint = clientInfoUrls.b2b.cognito.cognito;
+
+        this.signInURL = this.cognitoEndpoint + "signin/initiate";
+        this.getUserInfoURL = this.cognitoEndpoint + "get";
+        this.forgotPasswordURL = this.cognitoEndpoint + "password/forgot";
+        this.confirmForgotPasswordURL = this.cognitoEndpoint + "password/forgot/confirm";
+        this.resendOtpURL = this.cognitoEndpoint + "signup/resendcode";
+    },
+    mounted(){
+        const url = window.location;
+        // Get the query parameters
+        const queryParams = this.getQueryParams(url);
+        if (queryParams && queryParams.user) {
+            let userCred = JSON.parse(atob(queryParams.user));
+            localStorage.setItem('session_timer', Date.now());
+            localStorage.setItem('access_token', userCred.access_token);
+            localStorage.setItem('id_token', userCred.id_token);
+            this.loginUsingQueryParams();
+        } else if (url.hostname.includes('booking.j2bonline.com')) {
+            window.location.href = 'https://www.j2bonline.com/';
+            
+        } else {
+
+            // Keyboard INTERACTION
+            let x = document.addEventListener('keyup', (event) => {
+                const keyName = event.key;
+                if (keyName === 'Enter') {
+                    if(this.sigInSec){
+                        this.signInWithMFA();
+                    }
+                    else if(this.showMfaActivationSection){
+                        this.verifyMFA();
+                    }
+                    else if(this.showMfaSignInSection){
+                        this.submitMfaAuthChallenge();
+                    }
+                    else if(this.forgotSec){
+                        this.forgotPassword();
+                    }
+                }
+            }, false);
+            
+            this.getData();
+        }
+    },
+    methods: {
+        async getData(){
+            // this.globalData = await getStrapiData('global?populate=*,header.header_logo,header.header_menu,header.user_avatar,header.profile_menu,Header,Header.menu,Header.logo,menu,footer,footer.link,footer_menu,footer_menu.logo,footer_menu.socialmedia_links,footer_menu.menu');
+            // this.pageData = await getStrapiData('login?populate=*');
+           
+            if (clientInfoUrls.b2b.AgencyName == 'royallinks'){
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/login.json ')
+                .then((response) => {
+                    this.pageData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                });
+
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/global.json ')
+                .then((response) => {
+                    this.globalData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                });
+            }
+            else if (clientInfoUrls.b2b.AgencyName == 'jamal'){
+                //    this.pageData = await getStrapiData('j2b-home?populate=*,forgot_password_label,signup_link,home_banner,home_banner.banner_image,,card,card.image,business_usps,ad_banner,ad_embeded_link,SEO,SEO.metaImage,SEO.metaSocial,SEO.seoMetaPairs')
+                // this.globalData = await getStrapiData('j2b-global?populate=*,menunavigation.menuitem,header_logo,header_menu,newsletter.newsletter_bg_1920x402,footerarea.footerlogo_144x93,footerarea.footer_menu_items,footerarea.socialmedia,footerarea.paymentmethods,partner_logos');
+                //  this.globalData = await getStrapiData('j2b-global?populate=*,header_logo,header_menu,newsletter,newsletter.newsletter_bg_1920x402,newsletter.submit_button,partner_logos,footerarea,footerarea.footerlogo_144x93,footerarea.footer_menu_items,footerarea.footer_menu_items,footerarea.social_media,footerarea.paymentmethods,footerarea.footerbg_892x447');
+
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/login.json ')
+                .then((response) => {
+                    this.pageData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                });
+
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/global.json ')
+                .then((response) => {
+                    this.globalData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                    // this.globalData.Header.menu = this.globalData?.Header?.menu?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                    // this.globalData.footer.link = this.globalData?.footer?.link?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                });
+        
+        
+            }
+            else if (clientInfoUrls.b2b.AgencyName == 'travelcare'){
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/login.json ')
+                .then((response) => {
+                    this.pageData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                });
+
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/global.json ')
+                .then((response) => {
+                    this.globalData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                    this.globalData.Header.menu = this.globalData?.Header?.menu?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                    this.globalData.footer.link = this.globalData?.footer?.link?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                });
+            }
+            else if (clientInfoUrls.b2b.AgencyName == 'souq'){
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/login.json ')
+                .then((response) => {
+                    this.pageData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                });
+
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/global.json ')
+                .then((response) => {
+                    this.globalData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                    this.globalData.Header = {};
+                    this.globalData.Header.menu = this.globalData?.menu?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                    this.globalData.Header.logo = this.globalData?.header?.header_logo;
+                    // this.globalData.footer.link = this.globalData?.footer?.link?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                });
+            }
+            else if (clientInfoUrls.b2b.AgencyName == 'elif-global'){
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/login.json ')
+                .then((response) => {
+                    this.pageData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                });
+
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/global.json ')
+                .then((response) => {
+                    this.globalData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                    this.globalData.Header = {};
+                    this.globalData.Header.menu = this.globalData?.menu?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                    this.globalData.Header.logo = this.globalData?.header?.header_logo;
+                    // this.globalData.footer.link = this.globalData?.footer?.link?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                });
+            }
+            else if (clientInfoUrls.b2b.AgencyName == 'zia'){
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/login.json ')
+                .then((response) => {
+                    this.pageData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                });
+
+                await axios.get('../../assets/languages/en-us/'+ clientInfoUrls.b2b.AgencyName +'/global.json ')
+                .then((response) => {
+                    this.globalData = response?.data?.data?.attributes ? response?.data?.data?.attributes : null;
+                    this.globalData.Header.menu = this.globalData?.Header?.menu?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                    this.globalData.footer.link = this.globalData?.footer?.link?.filter((ele)=> ele?.label?.toLowerCase().trim() == 'home' );
+                });
+            }
+            else{
+                this.pageData = await getPageData(clientInfoUrls.b2b.AgencyName, 'login');
+                this.globalData = await getPageData(clientInfoUrls.b2b.AgencyName, 'global');
+            }
+        },
+        clearWarnings:function(){
+            this.userFirstNameErormsg = false;
+            this.userLastNameErrormsg = false;
+            this.userEmailErormsg = false;
+            this.userPasswordErormsg = false;
+            this.userConPasswordErormsg = false;
+            this.userPwdMisMatcherrormsg = false;
+            this.userPwdLengthErormsg = false;
+            this.userNameErormsg = false;
+            this.userOtpErormsg = false;
+            this.forgetOtpErormsg = false;
+            this.forgetPassErormsg = false;
+            this.forgetPassMissMatchErormsg = false;
+        },
+        clearInputs:function(){
+            this.userMail ='';
+            this.userPassword = '';
+            this.userConfirmPassword ='';
+            this.mfaActivationCode = '';
+        },
+        signIn(){
+            // $('.login_btn').addClass('loading');
+            var self = this;
+            self.clearWarnings();
+            if (self.userMail.trim() == "") {
+                self.userEmailErormsg = true;
+                $('#userMailId').focus();
+                alertify.alert('Warning','Please Enter User Name');
+                return false;
+            } else if (self.userPassword.trim() == "") {
+                self.userPasswordErormsg = true;
+                $('#userPasswordId').focus();
+                alertify.alert('Warning','Please Enter Password');
+                return false;
+            }
+            // self.showLoader = true;
+            let body ={
+                clientId: this.clientId,
+                authFlow : "USER_PASSWORD_AUTH",
+                authParameters : {
+                    PASSWORD : self.userPassword.trim(),
+                    USERNAME : self.userMail.trim()
+                }
+                }
+            self.loaderEnable=true;
+            axios.post(self.signInURL, body).then(function (resp) {
+                if(resp && resp.status == 200 && resp.data && resp.data.data && resp.data.data.authenticationResult){
+                    localStorage.setItem('session_timer', Date.now());
+                    localStorage.setItem('access_token', resp.data.data.authenticationResult.accessToken);
+                    localStorage.setItem('id_token', resp.data.data.authenticationResult.idToken);
+                    self.getUserInfo(false);
+                    // self.clearInputs();
+                }
+            }).catch(function (error) {
+                // self.showLoader = false;
+                self.loaderEnable=false;
+                self.userEmailErormsg = true;
+                self.userPasswordErormsg = true;
+                $('#userMailId').focus();
+                alertify.alert('Warning','Invalid username or password..');
+                // $('.login_btn').removeClass('loading');
+                self.getMessage(error, true, true);
+            });
+            
+        },
+        getUserInfo:function(isAssociateMFA){
+            var self = this;
+            let body = {
+                accessToken : localStorage.access_token
+            }
+            axios.post(self.getUserInfoURL, body).then(async function (resp) {
+                if(resp && resp.status == 200 && resp.data && resp.data.data && resp.data.data.userAttributes){
+                    let userInfo = resp.data.data;
+                    const userCreatedNode = userInfo.userAttributes.find(o => o.name === 'custom:creatednode');
+                    let isMFAFunDisabled = await self.getFunForUser(userCreatedNode.value, userInfo.username, MainApps.TravelB2B);
+
+                    if(isAssociateMFA && !isMFAFunDisabled){
+                        const userFirstName = userInfo.userAttributes.find(o => o.name === 'name');
+                        self.associateMFA(localStorage.access_token, userFirstName.value);
+                    } else {
+                     
+                        localStorage.username = userInfo.username;
+                        localStorage.User = JSON.stringify(userInfo.userAttributes);
+                        const userCreatedNode = userInfo.userAttributes.find(o => o.name === 'custom:creatednode');
+                        localStorage.setItem('clientNode', userCreatedNode.value);
+                        getRootNodeById().then(function (resp) {
+                            if(resp){
+                                groupCall(userCreatedNode.value, 'USR_'+userInfo.username);
+
+                                self.checkLoginStatus(userInfo, userCreatedNode);
+                            }
+                        });
+                        
+                    }
+                    //for root client name
+
+                    // await groupCall(userCreatedNode.value, 'USR_'+userInfo.username);
+                    // setTimeout(() => {
+                    //     window.location.href = '/flight-search.html?nc=' + btoa(userCreatedNode.value);
+                    // }, 50);
+                }
+
+            }).catch(function (error) {
+                self.loaderEnable=false;
+                self.clearInputs();
+                self.getMessage(error, true, true);
+            });
+            
+        },
+        forgotPassword(){
+            let self = this;
+            this.clearWarnings();
+            if (this.forgetUserMail.trim() == "") {
+                this.userNameErormsg = true;
+                $('#forgetUserMailId').focus();
+                alertify.alert('Warning','Email cannot be empty !');
+                return false;
+            }
+            self.showLoader = true;
+            let body = {
+                clientId: self.clientId,
+                username: self.forgetUserMail
+            }
+            self.loaderEnable=true;
+            axios.post(this.forgotPasswordURL, body).then(function (resp) {
+                self.forgotSec = false;
+                self.loaderEnable=false;
+                self.confirmForgotSec = true;
+            }).catch(function (error) {
+                self.loaderEnable=false;
+                console.log("error in forgot :",error);
+            });
+        
+        },
+        confirmForgotPassword(){
+            var vm = this;
+
+            vm.clearWarnings();
+            if (vm.otp.trim() == "") {
+                vm.forgetOtpErormsg = true;
+                $('#otpId').focus();
+                alertify.alert('Warning','Mandatory fileds cannot be empty !');
+                return false;
+            } else if (vm.newPassword.trim() == "") {
+                vm.forgetPassErormsg = true;
+                $('#newPasswordId').focus();
+                alertify.alert('Warning','Mandatory fileds cannot be empty !');
+                return false;
+            } else if (vm.confirmNewPassword.trim() == "") {
+                vm.forgetPassErormsg = true;
+                $('#confirmNewPasswordId').focus();
+                alertify.alert('Warning','Mandatory fileds cannot be empty !');
+                return false;
+            }
+             else if(vm.confirmNewPassword.trim() != vm.newPassword.trim()){
+                vm.forgetPassMissMatchErormsg = true;
+                $('#confirmNewPasswordId').focus();
+                alertify.alert('Warning','Passwords do not match !');
+                return false;
+            }
+
+            vm.showLoader = true;
+
+            let body = {
+                clientId: vm.clientId,
+                confirmationCode: vm.otp,
+                password: vm.newPassword,
+                username: vm.forgetUserMail
+            }
+            self.loaderEnable=true;
+            axios.post(vm.confirmForgotPasswordURL, body).then(function (resp) {
+                self.loaderEnable = false;
+                alertify.alert('Warning','You have changed password successfully.');
+                vm.clearInputs();
+            }).catch(function (error) {
+                self.loaderEnable = false;
+                console.log("error in confirm Password:",error);
+            });
+        },
+        resendOTP(){
+            let body = {
+                clientId: this.clientId,
+                username: this.forgetUserMail
+            }
+            self.loaderEnable = true;
+            axios.post(this.resendOtpURL, body).then(function (resp) {
+                self.loaderEnable = false;
+            }).catch(function (error) {
+                self.loaderEnable = false;
+                console.log("error in resend otp :",error);
+            });
+        },
+        getMessage(a, b, c){
+
+        },
+        isUserFunEnabled(funId){
+            return isUserFunEnabled(funId);
+        },
+        generateQRCode(text) {
+            // Create a new instance of QRCode
+            var qrcode = new QRCode(document.getElementById("qrcode"), {
+                text: text,
+                width: 150,
+                height: 150
+            });
+            
+            qrcode.makeCode(text);
+        },
+        signInWithMFA(){
+            var self = this;
+            if(!self.loaderEnable){
+                if (self.userMail.trim() == "") {
+                    alertify.alert('Alert','Please Enter User Name');
+                    document.getElementById("userMailId").focus();
+                    return false;
+                } else if (self.userPassword.trim() == "") {
+                    alertify.alert('Alert','Please Enter Password');
+                    document.getElementById("userPasswordId").focus();
+                    return false;
+                }
+                let body ={
+                    clientId: this.clientId,
+                    authFlow : "USER_PASSWORD_AUTH",
+                    authParameters : {
+                    PASSWORD : self.userPassword.trim(),
+                    USERNAME : self.userMail.trim()
+                    }
+                }
+                self.loaderEnable = true;
+                axios.post(self.signInURL, body).then(function (resp) {
+                    if(resp?.status == 200 && resp?.data?.data?.authenticationResult?.accessToken){
+        
+                        localStorage.setItem('session_timer', Date.now());
+                        localStorage.setItem('access_token', resp.data.data.authenticationResult.accessToken);
+                        localStorage.setItem('id_token', resp.data.data.authenticationResult.idToken);
+                        self.clearInputs();
+                        self.getUserInfo(true);
+                        // self.associateMFA(resp.data.data.authenticationResult.accessToken);
+        
+                    }  else if(resp?.status == 200 && resp?.data?.data?.challengeName == "SOFTWARE_TOKEN_MFA") {
+                        self.sigInSec = false;
+                        self.mfaSession = resp.data.data;
+                        self.showMfaSignInSection = true;
+                        self.loaderEnable = false;
+                        setTimeout(() => {
+                            document.getElementById("mfaActivationCodeId").focus();
+                        }, 50);
+                    
+                    }
+                }).catch(function (error) {
+                    self.loaderEnable=false;
+                    alertify.alert('Warning','Invalid username or password..');
+                    document.getElementById("userMailId").focus();
+                    self.getMessage(error, true, true);
+                });
+            }   
+        },
+        associateMFA(accessToken,firstname){
+            var self = this;
+            let body = {
+                token: accessToken
+            }
+            axios.post(this.cognitoEndpoint + "/associate/mfa", body).then(function (resp) {
+                if(resp?.status == 200 && resp?.data?.data){
+    
+                    self.loaderEnable = false;
+                    self.sigInSec = false;
+                    self.showMfaActivationSection = true;
+                    const nameInAuthenticator = clientInfoUrls.b2b.mode + ' - B2B - '+ firstname;
+                    setTimeout(() => {
+                        self.generateQRCode('otpauth://totp/'+ nameInAuthenticator +'?secret=' + resp.data.data);
+                        document.getElementById("mfaActivationCodeId").focus();
+                    }, 50);
+                   
+    
+                }
+            }).catch(function (error) {
+                self.loaderEnable = false;
+                alertify.alert('Warning',error?.response?.data?.reason);
+                document.getElementById("userMailId").focus();
+    
+            });
+        },
+        verifyMFA(){
+            var self = this;
+    
+            if (self.mfaActivationCode.trim() == "") {
+                alertify.alert('alert','Please Enter MFA Code');
+                document.getElementById("mfaActivationCodeId").focus();
+                return false;
+            } 
+            let body = {
+                accessToken: localStorage.access_token,
+                friendlyDeviceName:'booking-engine',
+                userCode:this.mfaActivationCode
+            }
+            self.loaderEnable = true;
+            axios.post(this.cognitoEndpoint + "/verify/mfa", body).then(function (resp) {
+                if(resp?.status == 200 && resp?.data?.data == 'SUCCESS'){
+                   self.setMFA()
+                } 
+            }).catch(function (error) {
+                console.log(error)
+                self.loaderEnable = false;
+                self.mfaActivationCode = "";
+                document.getElementById("mfaActivationCodeId").focus();
+                alertify.alert('Warning',error?.response?.data?.reason);
+                
+    
+            });
+        },
+        setMFA(){
+            var self = this;
+    
+            let body = {
+                accessToken: localStorage.access_token,
+                softwareTokenMfaSettings:{
+                    enabled: true,
+                    preferredMfa: true
+                }
+            }
+            axios.post(this.cognitoEndpoint + "/set/mfa", body).then(function (resp) {
+                if(resp?.status == 200 && resp?.data?.data == 'SUCCESS'){
+                    self.getUserInfo(false);
+                } 
+            }).catch(function (error) {
+                self.loaderEnable = false;
+                alertify.alert('Warning',error?.response?.data?.reason);
+            });
+        },
+        submitMfaAuthChallenge(){
+            var self = this;
+            if (self.mfaActivationCode.trim() == "") {
+                alertify.alert('Alert','Please Enter MFA Code');
+                document.getElementById("mfaActivationCodeId").focus();
+                return false;
+            } 
+            let body = {
+                clientId:this.clientId,
+                challengeName: this.mfaSession.challengeName,
+                challengeResponses : {
+                    USERNAME: this.mfaSession.challengeParameters.USER_ID_FOR_SRP,
+                    SOFTWARE_TOKEN_MFA_CODE: this.mfaActivationCode
+                },
+                session: this.mfaSession.session
+            }
+            self.loaderEnable = true;
+            axios.post(this.cognitoEndpoint + "/signin/respond", body).then(function (resp) {
+                if(resp?.status == 200 && resp?.data?.data?.authenticationResult?.accessToken){
+                    localStorage.setItem('session_timer', Date.now());
+                    localStorage.setItem('access_token', resp.data.data.authenticationResult.accessToken);
+                    localStorage.setItem('id_token', resp.data.data.authenticationResult.idToken);
+                    self.getUserInfo(false);
+                    self.clearInputs();
+                } 
+            }).catch(function (error) {
+                console.log(error)
+                self.loaderEnable = false;
+                self.clearInputs();
+                document.getElementById("mfaActivationCodeId").focus();
+                alertify.alert('Warning',error?.response?.data?.reason);
+    
+            });
+        },
+        async getFunForUser( clientId, userId, appId) {
+            const SaaSApiGraphQL = `
+            query MyQuery($clientId: String!, $userId: String!, $appId: String!) {
+                getFunctionalitiesForUser(appId: $appId, PK: $clientId, userId: $userId) {
+                status
+                error
+                data {
+                        PK
+                        Name
+                    }
+                }
+            }
+           `
+            const payLoad = {
+                clientId: clientId,
+                userId: 'USR_'+userId,
+                appId: appId
+            };
+    
+            try {
+        
+                const graphqlData = await axios({
+                    url: clientInfoUrls.b2b.amplify.administrationGraphql,
+                    method: 'post',
+                    headers: {
+                        Authorization: 'Bearer ' + localStorage.id_token
+                    },
+                    data: {
+                        query: SaaSApiGraphQL,
+                        variables: payLoad
+                    }
+                });
+    
+                let isEnabled = false;
+                if(graphqlData?.data?.data?.getFunctionalitiesForUser?.data?.length > 0){
+                    let userFuns = graphqlData.data.data.getFunctionalitiesForUser.data;
+                    for (const fun of userFuns) {
+                        if(fun.PK == TravelB2bFun.MFAVerification){
+                            isEnabled = true;
+                            break;
+                        }
+                    };
+    
+                } else if(graphqlData?.data?.errors?.length > 0){
+                    console.log(graphqlData.data.errors[0].message);
+                }
+                return isEnabled;
+        
+            } catch (err) {
+                console.log('error posting to appsync: ', err);
+                return false;
+            }
+        },
+        checkLoginStatus(userInfo, userCreatedNode){
+            if(loginMethodCount > 3 && sessionStorage.user_funs != undefined){
+                setTimeout(() => {
+                    if(sessionStorage.getItem('fromLogin')){
+                        sessionStorage.removeItem('fromLogin');
+                    }
+                    
+                    localStorage.setItem('newscarosel','true');
+
+                    if(this.isUserFunEnabled(this.travelB2bEnum.FlightSearch)){
+                        var emailVer = userInfo.userAttributes.filter((word) => word.name == "email_verified");
+                        if(emailVer.length != 0){
+                            if(emailVer[0].value == 'true'){
+                                window.location.href = '/flight/flight-search.html?nc=' + btoa(userCreatedNode.value);
+                            }
+                            else{
+                                sessionStorage.setItem('fromLogin','true');
+                                window.location.href = '/profile/my-profile.html?nc=' + btoa(userCreatedNode.value);
+                            }
+                        }
+                        else{
+                            sessionStorage.setItem('fromLogin','true');
+                            window.location.href = '/profile/my-profile.html?nc=' + btoa(userCreatedNode.value);
+                        }
+                    }
+                    else if(this.isUserFunEnabled(this.groupBookingEnum.MyBookings)){
+                        window.location.href = '/flight/search-group-bookings.html?nc=' + btoa(userCreatedNode.value);
+                    }
+                    else{
+                        this.loaderEnable = false;
+                        logoutAndClear();
+                    }
+                    
+                }, 50);
+            }
+            else{
+                setTimeout(() => {
+                    this.checkLoginStatus(userInfo, userCreatedNode);
+                }, 100);
+            }
+        },
+        getQueryParams(url) {
+            const searchParams = new URLSearchParams(new URL(url).search);
+            const params = {};
+
+            for(const [key, value] of searchParams) {
+                if (!params[key]) {
+                    params[key] = value;
+                } else if (Array.isArray(params[key])) {
+                    params[key].push(value);
+                } else {
+                    params[key] = [params[key], value];
+                }
+            }
+            return params;
+        },
+        loginUsingQueryParams: function () {
+            var self = this;
+            let body = {
+                accessToken: localStorage.access_token
+            }
+            axios.post(self.getUserInfoURL, body).then(async function (resp) {
+                if (resp && resp.status == 200 && resp.data && resp.data.data && resp.data.data.userAttributes) {
+                    let userInfo = resp.data.data;
+                    localStorage.username = userInfo.username;
+                    localStorage.User = JSON.stringify(userInfo.userAttributes);
+                    const userCreatedNode = userInfo.userAttributes.find(o => o.name === 'custom:creatednode');
+                    localStorage.setItem('clientNode', userCreatedNode.value);
+                    getRootNodeById().then(function (resp) {
+                        if (resp) {
+                            groupCall(userCreatedNode.value, 'USR_' + userInfo.username);
+
+                            self.checkLoginStatus(userInfo, userCreatedNode);
+                        }
+                    });
+                }
+
+            }).catch(function (error) {
+                self.loaderEnable = false;
+                self.clearInputs();
+                self.getMessage(error, true, true);
+            });
+        },
+    },
+    watch:{
+        forgotSec(val){
+            if(val){
+                this.$nextTick(() => {
+                    this.$refs.forgetUserMailId.focus();
+                });
+            }
+        }
+    }
+});

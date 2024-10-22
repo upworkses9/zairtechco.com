@@ -1,0 +1,236 @@
+@media screen and (max-width: 337px) {
+.contact-form {
+padding: 40px 20px;
+}
+}
+@media screen and (max-width: 480px) {
+.login-div {
+padding: 30px !important;
+}
+.login-div h2 {
+font-size: 20px;
+padding-bottom: 20px;
+}
+.copyright p {
+width: auto;
+}
+.contact-sec .inner svg {
+width: 25px;
+height: 25px;
+margin-right: 10px;
+}
+.contact-sec .inner p {
+width: 87%;
+line-height: 22px;
+font-size: 15px;
+padding: 0;
+}
+}
+@media screen and (max-width: 767px) {
+/* Common CSS BOF
+=============================== */
+.container, .container-sm {
+max-width: 100%;
+}
+.nav-link {
+font-size: 15px;
+font-weight: 600;
+}
+.login-div {
+width: 100%;
+padding: 40px;
+}
+footer .about, footer .contact, footer .link, footer .newsletter {
+padding-bottom: 20px;
+}
+footer .link, footer .newsletter {
+  padding-left: 0;
+}
+footer .link h3, footer .contact h3, footer .about h3, footer .newsletter h3 {
+font-size: 20px;
+margin: 0px 0 10px;
+}
+footer .about p, footer .newsletter p, footer .contact ul li p, footer .contact ul li p a {
+font-size: 16px;
+line-height: 20px;
+}
+footer .about p, footer .newsletter p {
+width: 100%;
+}
+footer .about .social {
+margin: 15px 0 0 0;
+}
+footer .newsletter .news-sub button {
+font-size: 15px;
+}
+.copyright {
+padding: 20px 0 30px;
+}
+.inner_banner {
+min-height: 180px;
+}
+.inner_banner .banner-text h1 {
+font-size: 30px;
+}
+.about-sec, .about-inr, .contact-sec {
+padding: 40px 0;
+}
+.title h2 {
+font-size: 28px;
+}
+.about-sec figure {
+margin: 20px 0;
+}
+.about-inr .flex {
+display: -webkit-block;
+display: block;
+}
+.about-inr .inner {
+margin: 15px 0;
+}
+.contact-sec .title h2 {
+padding-bottom: 20px;
+}
+.contact-sec .inner {
+padding: 20px 0;
+}
+.contact-inr {
+padding: 0 0 40px;
+}
+.contact-form {
+margin-bottom: 40px;
+}
+.map-responsive {
+padding-bottom: 242px;
+}
+.map-responsive iframe {
+height: 242px;
+}
+}
+@media (min-width: 768px) and (max-width: 990px) {
+/* Common CSS BOF
+=============================== */
+.login-div {
+width: 100%;
+padding: 40px;
+margin-top: 80px;
+}
+#main_banner {
+height: 580px;
+}
+footer .link, footer .newsletter {
+padding-top: 20px;
+padding-left: 0;
+}
+footer .about p, footer .newsletter p, footer .contact ul li p, footer .contact ul li p a {
+font-size: 16px;
+line-height: 20px;
+}
+.about-sec figure {
+width: 400px;
+margin: 20px 0;
+}
+.about-inr .inner {
+padding: 30px 20px;
+}
+.contact-sec .title h2 {
+padding-bottom: 30px;
+}
+.contact-sec .inner {
+padding: 20px 0;
+}
+.contact-form {
+margin-bottom: 40px;
+}
+}
+@media screen and (max-width: 990px) {
+/* Common CSS BOF
+=============================== */
+.navbar > .container {
+display: block;
+}
+.navbar-brand {
+margin-top: 0;
+float: left;
+width: 150px;
+}
+.navbar-brand img {
+width: 100%;
+}
+.navbar-toggler:focus {
+box-shadow: none;
+}
+.navbar-toggler {
+float: right;
+border: none;
+margin: 16px 0 0;
+padding: 0;
+}
+.navbar-toggler-icon {
+background: url(../images/menu-icon.png) no-repeat;
+width: 25px;
+height: 19px;
+}
+.navbar-collapse {
+width: 100%;
+position: absolute;
+top: 55px;
+left: 0;
+right: 0;
+z-index: 999;
+margin: 0 auto;
+}
+.navbar-nav {
+width: 100%;
+background: #171833;
+}
+.navbar .nav-item {
+border-bottom: 1px solid rgba(255,255,255,0.1);
+padding: 0;
+}
+.nav-link {
+padding: 12px 15px !important;
+color: var(--white);
+}
+.nav-link:focus, .nav-link:hover {
+color: var(--orange);
+background: var(--red);
+}
+.navbar-nav .nav-link.active, .navbar-nav .nav-link.show {
+color: var(--orange);
+background: var(--red);
+}
+}
+@media (min-width: 991px) and (max-width: 1199px) {
+/* Common CSS BOF
+=============================== */
+.nav-link {
+font-size: 15px;
+}
+.banner_text h1 {
+font-size: 50px;
+line-height: 50px;
+}
+.login-div {
+width: 100%;
+padding: 40px 30px;
+}
+footer .link, footer .newsletter {
+  padding-left: 0;
+}
+footer .about p, footer .newsletter p, footer .contact ul li p, footer .contact ul li p a {
+font-size: 16px;
+line-height: 20px;
+}
+.contact-sec .inner p {
+font-size: 15px;
+}
+.contact-form {
+padding: 40px 15px;
+}
+}
+@media (min-width: 1200px) {
+.container {
+max-width: 1240px;
+}
+}

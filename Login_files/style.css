@@ -1,0 +1,629 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap');
+/* 01 : Website Global CSS BOF
+========================================================== */
+:root {
+--orange: #F17A22;
+--blue: #373991;
+--black: #000;
+--white: #fff;
+--grey: #626262;
+--dk-grey: #302F45;
+--lt-grey: #747485;
+--brdr-grey: #D6D6E4;
+--primary-bg-color: #F17A22;
+--black: #000;
+}
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+}
+img {
+outline: none;
+}
+body {
+color: var(--grey);
+font-weight: 400;
+font-family: 'Barlow', sans-serif;
+}
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+font-weight: 700;
+line-height: 1.1;
+margin: 0;
+padding: 0;
+}
+ul {
+padding: 0;
+margin: 0;
+list-style: none;
+}
+ul li {
+list-style: none;
+}
+a {
+-webkit-transition: all 0.5s ease-in-out;
+-moz-transition: all 0.5s ease-in-out;
+-o-transition: all 0.5s ease-in-out;
+transition: all 0.5s ease-in-out;
+outline: none !important;
+text-decoration: none !important;
+}
+p {
+line-height: 28px;
+margin: 0;
+padding: 15px 0 0;
+color: var(--grey);
+font-size: 16px;
+}
+/* Header CSS BOF
+=============================== */
+header {
+background: var(--white);
+border-bottom: 1px solid rgba(112,112,112,.1);
+}
+/* Navbar CSS BOF
+=============================== */
+.navbar {
+padding: 0;
+}
+.navbar .nav-item {
+padding: 25px 20px;
+}
+.nav-link {
+font-size: 17px;
+display: block;
+padding: 0 !important;
+color: var(--dk-grey);
+text-transform: uppercase;
+font-weight: 700;
+}
+.nav-link:focus, .nav-link:hover {
+color: var(--orange);
+}
+.navbar-nav .nav-link.active, .navbar-nav .nav-link.show {
+color: var(--orange);
+}
+.navbar-brand {
+margin-right: 0;
+}
+/*=====  Banner Sections CSS BOF  ======*/
+#main_banner {
+position: relative;
+/* background: url(../images/home-bnr.jpg) no-repeat center center; */
+background-size: cover !important;
+background-position: top center !important;
+padding: 0;
+}
+#main_banner::before, .inner_banner::before {
+background: rgb(166,70,0);
+background: linear-gradient(90deg, rgba(166,70,0,0.6) 0%, rgba(0,4,168,0.6) 100%);
+content: "";
+height: 100%;
+left: 0;
+position: absolute;
+top: 0;
+width: 100%;
+}
+.banner_text, .inner_banner .banner-text {
+position: absolute;
+text-align: left;
+float: left;
+top: 42%;
+-webkit-transform: translate(0%, -42%);
+-moz-transform: translate(0%, -42%);
+transform: translate(0%, -42%);
+}
+.banner_text h1 {
+font-size: 64px;
+font-weight: 700;
+color: var(--white);
+line-height: 70px;
+}
+.banner_text h2 {
+font-size: 30px;
+font-weight: 400;
+color: var(--white);
+text-transform: uppercase;
+}
+/* Login Form CSS BOF
+=============================== */
+.login-div {
+background: var(--white);
+width: 472px;
+border-radius: 12px;
+padding: 40px;
+float: right;
+position: relative;
+/* margin-top: 100px; */
+}
+.login-div h2 {
+font-size: 25px;
+font-weight: 700;
+color: var(--dk-grey);
+text-align: center;
+padding-bottom: 30px;
+}
+.login-div form {
+width: 100%;
+float: left;
+}
+.login-div form .field {
+margin: 12px 0;
+float: left;
+width: 100%;
+}
+.login-div form input {
+border: 1px solid #d9d9d9;
+border-radius: 8px;
+width: 100%;
+outline: 0;
+font-size: 18px;
+padding: 0 20px;
+font-weight: 500;
+height: 60px;
+}
+.login-div form label {
+color: #ABABAB;
+position: absolute;
+margin-top: -45px;
+margin-left: 20px;
+pointer-events: none;
+transition: all 0.2s ease;
+-webkit-transition: all 0.2s ease;
+-moz-transition: all 0.2s ease;
+-o-transition: all 0.2s ease;
+font-size: 18px;
+}
+.login-div form input:focus ~ label,
+.login-div form input:valid ~ label {
+margin-top: -73px;
+font-size: 15px;
+padding: 2px;
+color: var(--dk-grey);
+margin-left: 20px;
+background: var(--white);
+}
+.login-div form input:focus,
+.login-div form input:valid {
+}
+.login-div form input:focus {
+border-color: var(--orange);
+}
+.login-div form .link {
+font-size: 16px;
+font-weight: 600;
+color: var(--grey);
+margin: 0 auto;
+display: block;
+width: fit-content;
+cursor: pointer;
+float: right;
+margin-top: 10px;
+}
+.login-div form .link:hover {
+color: var(--orange);
+text-decoration: none;
+}
+.login-div form button, .send-btn {
+display: block;
+background: var(--orange);
+color: var(--white);
+font-size: 20px;
+font-weight: 700;
+padding: 0;
+border: none;
+width: 100%;
+border-radius: 8px;
+height: 60px;
+line-height: 60px;
+text-transform: uppercase;
+-webkit-transition: all 0.5s ease-in-out;
+-moz-transition: all 0.5s ease-in-out;
+-o-transition: all 0.5s ease-in-out;
+transition: all 0.5s ease-in-out;
+margin-top: 30px;
+float: left;
+}
+.login-div form button:hover, .login-div form button:focus, .login-div form button:active, .send-btn:hover, .send-btn:focus, .send-btn:active {
+color: var(--white);
+text-decoration: none;
+background: var(--blue);
+}
+/* Footer CSS BOF
+=================================================== */
+footer {
+background: #171833;
+display: block;
+width: 100%;
+padding: 60px 0 0;
+float: left;
+}
+footer .inner {
+display: block;
+width: 100%;
+}
+footer .about p, footer .newsletter p {
+font-size: 18px;
+text-align: left;
+color: var(--lt-grey);
+padding: 0;
+line-height: 26px;
+float: left;
+}
+footer .about .social {
+width: auto;
+margin: 25px 0 0 0;
+float: left;
+}
+footer .about .social ul {
+padding: 0;
+margin: 0;
+list-style: none;
+}
+footer .about .social ul li {
+display: inline-block;
+padding: 0 8px 0 0;
+list-style: none;
+}
+footer .about .social ul li a {
+color: var(--lt-grey);
+font-size: 16px;
+height: 35px;
+width: 35px;
+border-radius: 50px;
+display: block;
+background: transparent;
+text-align: center;
+vertical-align: middle;
+line-height: 33px;
+border: 1px solid var(--lt-grey);
+}
+footer .about .social ul li a:hover {
+background: var(--orange);
+color: var(--white);
+border: 1px solid var(--orange);
+}
+footer .link, footer .contact, footer .about, footer .newsletter {
+width: 100%;
+display: inline-block;
+}
+footer .link, footer .newsletter {
+  padding-left: 30px;
+}
+footer .link h3, footer .contact h3, footer .about h3, footer .newsletter h3 {
+color: var(--white);
+display: inline-block;
+font-weight: 500;
+line-height: normal;
+margin: 0 0 20px;
+position: relative;
+text-align: left;
+float: left;
+width: 100%;
+font-size: 22px;
+padding-bottom: 10px;
+}
+footer .link ul {
+width: 100%;
+list-style: none;
+padding: 0;
+margin: 0;
+float: left;
+}
+footer .link ul li {
+font-size: 16px;
+padding: 0 0 16px;
+width: 100%;
+position: relative;
+}
+footer .link ul li a i {
+font-size: 18px;
+padding-right: 5px;
+}
+footer .link ul li a {
+color: var(--lt-grey);
+text-decoration: none;
+}
+footer .link ul li a:hover {
+color: var(--orange);
+text-decoration: none;
+}
+footer .contact ul {
+list-style: none;
+padding: 0;
+margin: 0;
+width: 100%;
+}
+footer .contact ul li {
+width: 100%;
+clear: both;
+float: left;
+padding: 0 0 12px;
+}
+footer .contact ul li p {
+font-size: 18px;
+color: var(--lt-grey);
+line-height: 28px;
+padding: 0;
+}
+footer .contact ul li p a {
+font-size: 20px;
+color: var(--lt-grey);
+font-weight: 500;
+float: left;
+}
+footer .contact ul li p a:hover {
+color: var(--orange);
+text-decoration: none;
+}
+footer .newsletter .news-sub {
+position: relative;
+margin: 20px 0 0;
+float: left;
+width: 100%;
+}
+footer .newsletter .news-sub input[type="text"] {
+height: 50px;
+width: 100%;
+background: transparent;
+border-radius: 5px;
+margin: 0;
+padding: 0 0 0 15px;
+color: var(--lt-grey);
+font-size: 15px;
+font-style: italic;
+border: 1px solid var(--lt-grey);
+}
+footer .newsletter .news-sub button {
+height: 48px;
+width: 110px;
+background: var(--white);
+cursor: pointer;
+border: none;
+position: absolute;
+top: 1px;
+right: 1px;
+color: #171833;
+font-size: 18px;
+-webkit-transition: all 0.5s ease-in-out;
+-moz-transition: all 0.5s ease-in-out;
+-o-transition: all 0.5s ease-in-out;
+transition: all 0.5s ease-in-out;
+font-weight: 600;
+border-radius: 4px;
+}
+footer .newsletter .news-sub button:hover {
+background: var(--blue);
+color: var(--white);
+}
+.copyright {
+padding: 40px 0;
+overflow: hidden;
+position: relative;
+}
+.copyright::before {
+background: rgba(255,255,255,0.1);
+content: "";
+height: 1px;
+left: 0;
+position: absolute;
+top: 50%;
+width: 100%;
+}
+.copyright p {
+color: var(--lt-grey);
+font-size: 15px;
+font-weight: 500;
+padding: 0;
+text-align: center;
+display: block;
+line-height: normal;
+margin: 0 auto;
+width: 378px;
+background: #171833;
+position: relative;
+}
+/* About Us Page CSS BOF
+=================================================== */
+.inner_banner {
+min-height: 264px;
+position: relative;
+background-size: cover !important;
+background-position: top center !important;
+}
+.inner_banner .banner-text h1 {
+font-size: 40px;
+color: var(--white);
+font-weight: 700;
+}
+.breadcrumbs {
+background: transparent;
+display: block;
+width: 100%;
+position: relative;
+margin-top: -50px;
+float: left;
+}
+.breadcrumbs ul {
+padding: 10px 0;
+}
+.breadcrumbs ul li {
+display: inline-block;
+color: rgba(255, 255, 255, 0.5);
+font-size: 16px;
+padding: 0 8px 0 0;
+font-weight: 500;
+}
+.breadcrumbs ul li a {
+color: var(--white);
+}
+.breadcrumbs ul li a:hover {
+color: var(--orange);
+}
+.about-sec, .about-inr, .contact-sec, .contact-inr {
+width: 100%;
+display: block;
+position: relative;
+padding: 70px 0;
+}
+.title h2 {
+font-size: 35px;
+font-weight: 700;
+color: var(--dk-grey);
+padding-bottom: 10px;
+}
+.about-sec figure {
+width: 100%;
+display: block;
+border-radius: 10px;
+overflow: hidden;
+margin: 20px 0 0;
+}
+.about-sec figure img {
+width: 100%;
+}
+.about-inr {
+background-color: #f7f7f7;
+float: left;
+}
+.about-inr .inner, .about-inr .inner svg, .contact-sec .inner svg {
+-webkit-transition: all 0.3s linear 0s;
+-moz-transition: all 0.3s linear 0s;
+-o-transition: all 0.3s linear 0s;
+-ms-transition: all 0.3s linear 0s;
+transition: all 0.3s linear 0s;
+}
+.about-inr .inner, .contact-sec .inner {
+width: 100%;
+min-height: 100%;
+text-align: center;
+padding: 35px 30px;
+background-color: var(--white);
+border-radius: 10px;
+float: left;
+}
+.about-inr .inner:hover {
+box-shadow: 0 5px 10px rgba(0, 0, 0, 0.08);
+}
+.about-inr .inner svg, .contact-sec .inner svg {
+width: 84px;
+height: 84px;
+padding: 3px;
+display: inline-block;
+fill: var(--orange);
+text-align: center;
+}
+.about-inr .inner:hover svg, .contact-sec .inner:hover svg {
+fill: var(--blue);
+}
+.about-inr .inner h4 {
+color: var(--dk-grey);
+font-size: 25px;
+padding-top: 10px;
+text-transform: none;
+font-weight: 700;
+line-height: normal;
+}
+.flex {
+display: -webkit-flex;
+display: flex;
+}
+/* Contact Us Page CSS BOF
+=================================================== */
+.contact-sec .title h2 {
+padding-bottom: 50px;
+}
+.contact-sec .inner {
+text-align: left;
+padding: 0 0 30px;
+border-radius: 0;
+border-bottom: 1px solid var(--brdr-grey);
+}
+.contact-sec .inner svg {
+width: 35px;
+height: 35px;
+padding: 0;
+fill: var(--orange);
+text-align: left;
+margin-right: 15px;
+float: left;
+}
+.contact-sec .inner p {
+padding: 3px 0 0;
+font-size: 18px;
+font-weight: 500;
+float: left;
+}
+.contact-sec .inner p a {
+color: var(--grey);
+}
+.contact-sec .inner p a:hover {
+color: var(--blue);
+}
+.contact-inr {
+padding: 0 0 70px;
+}
+.contact-form {
+padding: 40px 28px;
+border-radius: 12px;
+background: #f7f7f7;
+}
+.contact-form textarea.form-control {
+height: 120px;
+resize: none;
+padding: 18px;
+}
+.contact-form .form-control {
+background-color: var(--white);
+color: #ABABAB !important;
+display: block;
+font-size: 14px;
+height: 50px;
+line-height: 1.42857;
+padding: 6px 15px;
+width: 100%;
+z-index: 1;
+box-shadow: none;
+border:1px solid var(--brdr-grey);
+border-radius: 8px !important;
+font-weight: 500;
+}
+.contact-form .input-group {
+position: relative;
+display: inline-block;
+border-collapse: separate;
+width: 100%;
+padding: 12px 0;
+}
+.send-btn {
+font-size: 18px;
+width: 190px;
+height: 50px;
+line-height: 50px;
+margin: 20px auto 0;
+float: none;
+}
+.map-responsive {
+overflow: hidden;
+padding-bottom: 442px;
+position: relative;
+height: auto;
+margin-bottom: 0;
+border-radius: 12px;
+}
+.map-responsive iframe {
+left: 0;
+top: 0;
+height: 442px;
+width: 100%;
+position: absolute;
+}
+
+/*-------------------------alerttify section------------------*/
+.alertify .ajs-body .ajs-content{
+  color: var(--black);
+}
+.alertify .ajs-footer .ajs-buttons .ajs-button:hover{
+  background-color: var(--blue);
+}
+/*-------------------------alerttify section------------------*/

@@ -1,0 +1,6 @@
+const GroupBookingFun = Object.freeze({
+    MyBookings: "FUN_2eB3Rz0kk2HY9I45nUiHfBHCQq5",
+    SearchBook: "FUN_2eB3MehekT2uRMgZZiVkkARMpNC",
+    AvailabilitySearchGroup: "FUN_2jb3ZgLBRmm9np94ua504RIW6WA",
+    SearchGroupBookings : "FUN_2mpd0wlmjQL3UnBikpDKlyXKkIh"
+});
